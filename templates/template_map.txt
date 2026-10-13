@@ -126,7 +126,7 @@ VALUE_DEFAULT_VALUE
 
 #if IS_REFERENCE_KEY != 0
 
-#define KEY_HASH_FUNCTION(K) (HashUtil.mix(System.identityHashCode(K)))
+#define KEY_HASH_FUNCTION(K) (System.identityHashCode(K))
 #define KEY_EQUALS_FUNCTION(K1,K2) (K1 == K2)
 
 #else if PRIMITIVE_KEY_TYPE != 0
@@ -134,13 +134,13 @@ VALUE_DEFAULT_VALUE
 #if NUMBER_KEY_TYPE == 0
 #define KEY_HASH_FUNCTION(K) (K ? 1 : 0)
 #else
-#define KEY_HASH_FUNCTION(K) ((int)HashUtil.mix(K))
+#define KEY_HASH_FUNCTION(K) ((int)HashUtil.hash(K))
 #endif
 
 #define KEY_EQUALS_FUNCTION(K1,K2) (K1 == K2)
 
 #else
-#define KEY_HASH_FUNCTION(K) (HashUtil.mix(K.hashCode()))
+#define KEY_HASH_FUNCTION(K) ((int)HashUtil.hash(K.hashCode()))
 #define KEY_EQUALS_FUNCTION(K1,K2) (K1 == K2 || K1.equals(K2))
 #endif
 

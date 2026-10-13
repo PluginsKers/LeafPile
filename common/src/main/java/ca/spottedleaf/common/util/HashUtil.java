@@ -106,5 +106,49 @@ public final class HashUtil {
         return (x ^ x >>> 32) * INV_LONG_PHI;
     }
 
+    // Not from fastutil
+
+    /**
+     * A hash function for an {@code int}. This hash function is designed to be used to index into a hash table.
+     * There are no guarantees about how the hash is computed.
+     * @param x The input
+     * @return A hash for the input.
+     */
+    public static int hash(final int x) {
+        return mix(x);
+    }
+
+    /**
+     * Inverses {@link #hash(int)}. That is, {@code x = invHash(hash(x))}.
+     * @param x The input
+     * @return The inverse of {@link #hash(int)}.
+     */
+    public static int invHash(final int x) {
+        return invMix(x);
+    }
+
+    private static final long HASH_MUL = 0x11799ce95ce54aabL;
+    private static final long INV_HASH_MUL = 0x6c53d747c7f06003L;
+
+    /**
+     * A hash function for a {@code long}. This hash function is designed to be used to index into a hash table.
+     * There are no guarantees about how the hash is computed.
+     * @param x The input
+     * @return A hash for the input.
+     */
+    public static long hash(final long x) {
+        final long h = x * HASH_MUL;
+        return (h ^ (h >>> 32));
+    }
+
+    /**
+     * Inverses {@link #hash(long)}. That is, {@code x = invHash(hash(x))}.
+     * @param x The input
+     * @return The inverse of {@link #hash(long)}.
+     */
+    public static long invHash(final long x) {
+        return (x ^ x >>> 32) * INV_HASH_MUL;
+    }
+
     private HashUtil() {}
 }

@@ -200,7 +200,7 @@ public class SWMRLong2ObjectHashTable<V> {
 
     /** must be deterministic given a key */
     protected static int getHash(final long key) {
-        return (int)HashUtil.mix(key);
+        return (int)HashUtil.hash(key);
     }
 
     // rets -1 if capacity*loadFactor is too large

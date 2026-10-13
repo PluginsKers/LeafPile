@@ -6,6 +6,7 @@ import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UTFDataFormatException;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -160,7 +161,7 @@ public abstract class AbstractBufferInputStream extends InputStream implements D
 
     @Override
     public final int readUnsignedShort() throws IOException {
-        return (int)this.readShort() & 0xFFFF;
+        return (int)this.readChar();
     }
 
     @Override
@@ -225,9 +226,50 @@ public abstract class AbstractBufferInputStream extends InputStream implements D
         return ret.toString();
     }
 
+    public final String readUTFUncached() throws IOException {
+        return DataInputStream.readUTF(this);
+    }
+
+    private SmallStringReadTable utfReadTable;
+
+    private static final String[] ASCII_TABLE = new String[1 << Byte.SIZE];
+    static {
+        // note: the null char should be encoded with two bytes; however DataInputStream.readUTF does not enforce this,
+        //       so neither should we
+        for (int i = 0; i < 0x80; ++i) {
+            ASCII_TABLE[i] = String.valueOf((char)i);
+        }
+    }
+
     @Override
     public final String readUTF() throws IOException {
-        return DataInputStream.readUTF(this);
+        final boolean ensureSmall = this.readBuffer.getMaxCapacity() > (SmallStringReadTable.SMALL_THRESHOLD + Short.BYTES) && this.tryEnsure(SmallStringReadTable.SMALL_THRESHOLD + Short.BYTES);
+        if (!ensureSmall) {
+            this.ensureReadable(2L);
+        }
+        final long readerIdx = this.readBuffer.getReaderIndex();
+        final int len = (int)this.readBuffer.readCharBE(readerIdx);
+        if (len == 0) {
+            this.readBuffer.skipRead(Short.BYTES);
+            return "";
+        }
+        if (!ensureSmall) {
+            return this.readUTFUncached();
+        }
+        if (len == 1) {
+            final byte v = this.readBuffer.readByte(readerIdx + Short.BYTES);
+            final String ret = ASCII_TABLE[(int)(v & 0xFF)];
+            this.readBuffer.skipRead(Short.BYTES + 1L);
+            if (ret != null) {
+                return ret;
+            }
+            throw new UTFDataFormatException("Malformed input with len = 1, expected at least 1 more byte");
+        }
+        if (len <= SmallStringReadTable.SMALL_THRESHOLD) {
+            return (this.utfReadTable == null ? this.utfReadTable = new SmallStringReadTable() : this.utfReadTable)
+                    .read(this, readerIdx + 2L, len);
+        }
+        return this.readUTFUncached();
     }
 
     // specified by us

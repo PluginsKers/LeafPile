@@ -9,6 +9,8 @@ import ca.spottedleaf.ioutil.stream.wrapped.BufferedBufferOutputStream;
 import ca.spottedleaf.ioutil.stream.wrapped.SimpleBufferInputStream;
 import ca.spottedleaf.ioutil.stream.wrapped.SimpleBufferOutputStream;
 import org.junit.jupiter.api.Test;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.UTFDataFormatException;
 import java.lang.foreign.MemorySegment;
@@ -1640,7 +1642,7 @@ public final class SimpleBufferStreamTest {
     }
 
     @Test
-    public void testStringUTF() throws IOException {
+    public void testStringUTFSelf() throws IOException {
         final Buffer buffer = new Buffer(false, "", MemoryAllocator.UnPooledHeap.INSTANCE, 64L, 1024L);
 
         final char[] largeFastCheckUTF = new char[Character.MAX_VALUE + 1];
@@ -1650,8 +1652,21 @@ public final class SimpleBufferStreamTest {
         Arrays.fill(largeSlowCheckUTF, (char)0x800);
 
         final String[] strings = new String[] {
+                "",
+                "a",
                 "this is a very large ascii only string",
                 "small",
+                "ascii medium",
+                "ascii bigger medium",
+                "ascii much bigger than medium",
+
+                "ascii medium" + String.valueOf((char)0),
+                "ascii bigger medium" + String.valueOf((char)0),
+                "ascii much bigger than medium" + String.valueOf((char)0),
+
+                "ascii medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
+                "ascii bigger medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
+                "ascii much bigger than medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
 
                 "this is a very large not ascii only string" + String.valueOf((char)0),
                 "this is a very large not ascii only string" + String.valueOf((char)0x80),
@@ -1688,6 +1703,191 @@ public final class SimpleBufferStreamTest {
             });
         }
     }
+
+    @Test
+    public void testStringUTFWrite() throws IOException {
+        final Buffer buffer = new Buffer(false, "", MemoryAllocator.UnPooledHeap.INSTANCE, 64L, 1024L);
+
+        final char[] largeFastCheckUTF = new char[Character.MAX_VALUE + 1];
+        Arrays.fill(largeFastCheckUTF, 'a');
+
+        final char[] largeSlowCheckUTF = new char[Character.MAX_VALUE / 3 + 1];
+        Arrays.fill(largeSlowCheckUTF, (char)0x800);
+
+        final String[] strings = new String[] {
+                "",
+                "a",
+                "this is a very large ascii only string",
+                "small",
+                "ascii medium",
+                "ascii bigger medium",
+                "ascii much bigger than medium",
+
+                "ascii medium" + String.valueOf((char)0),
+                "ascii bigger medium" + String.valueOf((char)0),
+                "ascii much bigger than medium" + String.valueOf((char)0),
+
+                "ascii medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
+                "ascii bigger medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
+                "ascii much bigger than medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
+
+                "this is a very large not ascii only string" + String.valueOf((char)0),
+                "this is a very large not ascii only string" + String.valueOf((char)0x80),
+                "this is a very large not ascii only string" + String.valueOf((char)0) + String.valueOf((char)0x800),
+                "this is a very large not ascii only string" + String.valueOf((char)0x80) + String.valueOf((char)0x800),
+
+                "small" + String.valueOf((char)0),
+                "small" + String.valueOf((char)0x80),
+                "small" + String.valueOf((char)0) + String.valueOf((char)0x800),
+                "small" + String.valueOf((char)0x80) + String.valueOf((char)0x800),
+        };
+
+        try (final AbstractBufferOutputStream out = createLargeIntermediateOut(buffer)) {
+            assertThrows(UTFDataFormatException.class, () -> {
+                out.writeUTF(new String(largeFastCheckUTF));
+            });
+            assertThrows(UTFDataFormatException.class, () -> {
+                out.writeUTF(new String(largeSlowCheckUTF));
+            });
+
+            for (final String str : strings) {
+                out.writeUTF(str);
+                out.flush();
+                out.writeUTF(str);
+                out.flush();
+            }
+        }
+
+        try (final AbstractBufferInputStream in = createLargeIntermediateIn(buffer)) {
+            for (final String str : strings) {
+                assertEquals(str, DataInputStream.readUTF(in));
+                assertEquals(str, DataInputStream.readUTF(in));
+            }
+            assertTrue(in.isEOF());
+            assertThrows(Exception.class, () -> {
+                in.readUTF();
+            });
+        }
+    }
+
+    @Test
+    public void testStringUTFRead() throws IOException {
+        final Buffer buffer = new Buffer(false, "", MemoryAllocator.UnPooledHeap.INSTANCE, 64L, 1024L);
+
+        final char[] largeFastCheckUTF = new char[Character.MAX_VALUE + 1];
+        Arrays.fill(largeFastCheckUTF, 'a');
+
+        final char[] largeSlowCheckUTF = new char[Character.MAX_VALUE / 3 + 1];
+        Arrays.fill(largeSlowCheckUTF, (char)0x800);
+
+        final String[] strings = new String[] {
+                "",
+                "a",
+                "this is a very large ascii only string",
+                "small",
+                "ascii medium",
+                "ascii bigger medium",
+                "ascii much bigger than medium",
+
+                "ascii medium" + String.valueOf((char)0),
+                "ascii bigger medium" + String.valueOf((char)0),
+                "ascii much bigger than medium" + String.valueOf((char)0),
+
+                "ascii medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
+                "ascii bigger medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
+                "ascii much bigger than medium" + String.valueOf((char)0) + String.valueOf((char)0x80),
+
+                "this is a very large not ascii only string" + String.valueOf((char)0),
+                "this is a very large not ascii only string" + String.valueOf((char)0x80),
+                "this is a very large not ascii only string" + String.valueOf((char)0) + String.valueOf((char)0x800),
+                "this is a very large not ascii only string" + String.valueOf((char)0x80) + String.valueOf((char)0x800),
+
+                "small" + String.valueOf((char)0),
+                "small" + String.valueOf((char)0x80),
+                "small" + String.valueOf((char)0) + String.valueOf((char)0x800),
+                "small" + String.valueOf((char)0x80) + String.valueOf((char)0x800),
+        };
+
+        try (final AbstractBufferOutputStream out = createLargeIntermediateOut(buffer);
+             final DataOutputStream out2 = new DataOutputStream(out);) {
+            assertThrows(UTFDataFormatException.class, () -> {
+                out.writeUTF(new String(largeFastCheckUTF));
+            });
+            assertThrows(UTFDataFormatException.class, () -> {
+                out.writeUTF(new String(largeSlowCheckUTF));
+            });
+
+            for (final String str : strings) {
+                out2.writeUTF(str);
+                out2.flush();
+                out2.writeUTF(str);
+                out2.flush();
+            }
+        }
+
+        try (final AbstractBufferInputStream in = createLargeIntermediateIn(buffer)) {
+            for (final String str : strings) {
+                assertEquals(str, in.readUTF());
+                assertEquals(str, in.readUTF());
+            }
+            assertTrue(in.isEOF());
+            assertThrows(Exception.class, () -> {
+                in.readUTF();
+            });
+        }
+    }
+
+    @Test
+    public void testSingleByteUTF() throws Exception {
+        final Buffer buffer = new Buffer(false, "", MemoryAllocator.UnPooledHeap.INSTANCE, 64L, 2L * 256L * (2L + 1L));
+
+        final String[] strings = new String[256];
+        for (int i = 0; i < strings.length; ++i) {
+            strings[i] = String.valueOf((char)i);
+        }
+
+        try (final AbstractBufferOutputStream out = createLargeIntermediateOut(buffer);
+             final DataOutputStream out2 = new DataOutputStream(out);) {
+
+            for (final String str : strings) {
+                final boolean oneByte = (str.charAt(0) != '\0' && (str.charAt(0) & 128) == 0);
+                if (oneByte) {
+                    out2.writeUTF(str);
+                    out2.flush();
+                    out.writeUTF(str);
+                    out.flush();
+                } else {
+                    out2.writeShort(1);
+                    out2.writeByte((byte)str.charAt(0));
+                    out2.flush();
+                    out.writeShort(1);
+                    out.writeByte((byte)str.charAt(0));
+                    out.flush();
+                }
+            }
+        }
+
+        try (final AbstractBufferInputStream in = createLargeIntermediateIn(buffer)) {
+            for (final String str : strings) {
+                final String first;
+                try {
+                    first = DataInputStream.readUTF(in);
+                } catch (final UTFDataFormatException ex) {
+                    assertThrows(UTFDataFormatException.class, () -> {
+                        in.readUTF();
+                    });
+                    continue;
+                }
+                assertEquals(str, first);
+                assertEquals(str, in.readUTF());
+            }
+            assertTrue(in.isEOF());
+            assertThrows(Exception.class, () -> {
+                in.readUTF();
+            });
+        }
+    }
+
 
     @Test
     public void testByteArray() throws IOException {

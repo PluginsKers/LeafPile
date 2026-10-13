@@ -192,6 +192,11 @@ public abstract class AbstractBufferOutputStream extends OutputStream implements
         int off = 0;
         int len = str.length();
 
+        if (len == 0) {
+            this.writeShort((short)0);
+            return;
+        }
+
         // count string length
         int bytes = len; // at least length
 
@@ -256,6 +261,24 @@ public abstract class AbstractBufferOutputStream extends OutputStream implements
     }
 
     // specified by us
+
+    /**
+     * Writes all bytes from the stored write buffer. This function will not invoke
+     * {@link OutputStream#flush()} for any wrapped streams or make any attempt to ensure
+     * that bytes are written from wrapped streams.
+     * @throws IOException If an I/O error occurs
+     * @return Returns whether the write buffer is empty
+     */
+    public final boolean writeBuffer() throws IOException {
+        for (;;) {
+            if (this.writeBuffer.getReadableBytes() == 0L) {
+                return true;
+            }
+            if (!this.tryFlushWriteBuffer()) {
+                return false;
+            }
+        }
+    }
 
     public final void writeShortLE(final short v) throws IOException {
         this.ensureWritable(2L);

@@ -169,6 +169,26 @@ public class CLASS_TYPE(K,V) implements Iterable<CLASS_NAME.TABLE_ENTRY_TYPE(K,V
         return this.loadFactor;
     }
 
+    public final double getEntryCollisionFactor(final int scale) {
+        long chained = 0L;
+        for (final TABLE_ENTRY_TYPE(K,V) entry : this.table) {
+            if (entry == null || entry == RESIZE_NODE) {
+                continue;
+            }
+            long local = 0L;
+            for (TABLE_ENTRY_TYPE(K,V) node = entry.getNextPlain(); node != null; node = node.getNextPlain()) {
+                ++local;
+            }
+            long scaled = local;
+            // penalize local > 1 by scale
+            for (int i = 0; i < scale; ++i) {
+                scaled *= local;
+            }
+            chained += scaled;
+        }
+        return (double)chained/(double)this.size.get();
+    }
+
     protected static GENERIC_KEY_VALUE_TYPE(,K,V) TABLE_ENTRY_TYPE(K,V) getAtIndexAcquire(final TABLE_ENTRY_TYPE(K,V)[] table, final int index) {
         //noinspection unchecked
         return (TABLE_ENTRY_TYPE(K,V))TABLE_ENTRY_NAME.TABLE_ENTRY_ARRAY_HANDLE.getAcquire(table, index);
@@ -1437,7 +1457,7 @@ public class CLASS_TYPE(K,V) implements Iterable<CLASS_NAME.TABLE_ENTRY_TYPE(K,V
                     // plain reads are fine during synchronised access, as we are the only writer
                     TABLE_ENTRY_TYPE(K,V) prev = null;
                     for (; node != null; prev = node, node = node.getNextPlain()) {
-                        if (node.key == key) {
+                        if (KEY_EQUALS_FUNCTION(node.key,key)) {
                             final VALUE_TYPE ret = node.getValuePlain() + increment;
                             node.setValueVolatile(ret);
                             return ret;
@@ -1499,7 +1519,7 @@ public class CLASS_TYPE(K,V) implements Iterable<CLASS_NAME.TABLE_ENTRY_TYPE(K,V
 
                     // plain reads are fine during synchronised access, as we are the only writer
                     for (; node != null; prev = node, node = node.getNextPlain()) {
-                        if (node.key == key) {
+                        if (KEY_EQUALS_FUNCTION(node.key,key)) {
                             found = true;
                             ret = node.getValuePlain() - decrement;
 
