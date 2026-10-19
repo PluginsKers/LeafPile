@@ -2,6 +2,8 @@ plugins {
     id("leafpile.library")
 }
 
+version = "1.2.4-kers.1-SNAPSHOT"
+
 dependencies {
     api(project(":common"))
     api(libs.it.unimi.dsi.fastutil)
