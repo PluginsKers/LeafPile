@@ -185,7 +185,7 @@ public final class ReentrantAreaLock {
         final long[] areaAffected = new long[(toSectionX - fromSectionX + 1) * (toSectionY - fromSectionY + 1)];
         int areaAffectedLen = 0;
 
-        final Node ret = new Node(this, areaAffected, currThread);
+        Node ret = new Node(this, areaAffected, currThread);
 
         for (;;) {
             Node park = null;
@@ -228,8 +228,9 @@ public final class ReentrantAreaLock {
 
                 areaAffectedLen = 0;
 
-                // since we inserted, we need to drain waiters
-                ret.notifier.notifyThreadsAndBlock();
+                // A contender may start waiting after this notification, so do not reuse the node.
+                ret.notifier.notifyThreads();
+                ret = new Node(this, areaAffected, currThread);
             }
 
             if (park == null) {
@@ -242,6 +243,7 @@ public final class ReentrantAreaLock {
             }
 
             // failed
+            park.notifier.waitUntilReady();
         }
     }
 
