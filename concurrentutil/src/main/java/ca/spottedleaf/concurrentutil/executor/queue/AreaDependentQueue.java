@@ -7,10 +7,27 @@ import ca.spottedleaf.common.util.IntPairUtil;
 import ca.spottedleaf.concurrentutil.util.Priority;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.PriorityQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class AreaDependentQueue {
+
+    /**
+     * An action whose area remains occupied until its completion future finishes.
+     * The future must only complete after the action has stopped accessing its area,
+     * including on failure or cancellation. Running it outside this queue waits for completion.
+     */
+    @FunctionalInterface
+    public interface AsyncRunnable extends Runnable {
+        CompletableFuture<?> runAsync();
+
+        @Override
+        default void run() {
+            this.runAsync().join();
+        }
+    }
 
     /**
      * Whether to order tasks by (lower) stream id after (higher) priority
@@ -1150,10 +1167,18 @@ public final class AreaDependentQueue {
                 return;
             }
 
+            boolean deferred = false;
             try {
-                task.run.run();
+                if (task.run instanceof AsyncRunnable async) {
+                    Objects.requireNonNull(async.runAsync(), "completion").whenComplete((result, failure) -> task.finishTask(this));
+                    deferred = true;
+                } else {
+                    task.run.run();
+                }
             } finally {
-                task.finishTask(this);
+                if (!deferred) {
+                    task.finishTask(this);
+                }
             }
         }
 

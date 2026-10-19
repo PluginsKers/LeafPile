@@ -2,7 +2,7 @@ plugins {
     id("leafpile.library")
 }
 
-version = "1.2.4-kers.1-SNAPSHOT"
+version = "1.2.4-kers.2-SNAPSHOT"
 
 dependencies {
     api(project(":common"))
